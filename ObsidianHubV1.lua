@@ -351,7 +351,6 @@ function StartObsidianBlack()
         main.BorderSizePixel = 2
         main.BorderColor3 = Color3.fromRGB(180, 60, 255)
         main.ClipsDescendants = true
-        main.ZIndex = 2
         main.Parent = gui
         
         local mc = Instance.new("UICorner")
@@ -365,7 +364,7 @@ function StartObsidianBlack()
         shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
         shadow.BackgroundTransparency = 0.98
         shadow.BorderSizePixel = 0
-        shadow.ZIndex = 1
+        shadow.ZIndex = 0
         shadow.Parent = gui
         local sc = Instance.new("UICorner")
         sc.CornerRadius = UDim.new(0, 25)
@@ -378,7 +377,7 @@ function StartObsidianBlack()
         glow.BackgroundTransparency = 1
         glow.BorderSizePixel = 2
         glow.BorderColor3 = Color3.fromRGB(180, 60, 255)
-        glow.ZIndex = 1
+        glow.ZIndex = 0
         glow.Parent = gui
         local gbc = Instance.new("UICorner")
         gbc.CornerRadius = UDim.new(0, 25)
@@ -416,31 +415,29 @@ function StartObsidianBlack()
         hc.Parent = header
         
         local logo = Instance.new("TextLabel")
-        logo.Size = UDim2.new(0.28, 0, 0.55, 0)
-        logo.Position = UDim2.new(0.02, 0, 0.1, 0)
+        logo.Size = UDim2.new(0.35, 0, 1, 0)
+        logo.Position = UDim2.new(0.05, 0, 0, 0)
         logo.BackgroundTransparency = 1
         logo.Text = "OBSIDIAN"
         logo.TextColor3 = Color3.fromRGB(255, 255, 255)
         logo.TextScaled = true
         logo.Font = Enum.Font.GothamBold
         logo.TextXAlignment = Enum.TextXAlignment.Left
-        logo.ZIndex = 5
         logo.Parent = header
-
+        
         local version = Instance.new("TextLabel")
-        version.Size = UDim2.new(0.20, 0, 0.30, 0)
-        version.Position = UDim2.new(0.30, 0, 0.55, 0)
+        version.Size = UDim2.new(0.25, 0, 0.35, 0)
+        version.Position = UDim2.new(0.4, 0, 0.65, 0)
         version.BackgroundTransparency = 1
         version.Text = "BLACK v22"
         version.TextColor3 = Color3.fromRGB(200, 150, 255)
         version.TextScaled = true
         version.Font = Enum.Font.Gotham
-        version.ZIndex = 5
         version.Parent = header
         
-        -- КНОПКИ ЗАКРЫТИЯ И СКРЫТИЯ (поверх sizeFrame, высокий ZIndex)
+        -- КНОПКИ (ЧЕРНЫЕ)
         local closeBtn = Instance.new("TextButton")
-        closeBtn.Size = UDim2.new(0.10, 0, 0.5, 0)
+        closeBtn.Size = UDim2.new(0.06, 0, 0.5, 0)
         closeBtn.Position = UDim2.new(0.88, 0, 0.25, 0)
         closeBtn.BackgroundColor3 = Color3.fromRGB(30, 0, 0)
         closeBtn.BackgroundTransparency = 0.15
@@ -449,15 +446,14 @@ function StartObsidianBlack()
         closeBtn.TextScaled = true
         closeBtn.Font = Enum.Font.GothamBold
         closeBtn.BorderSizePixel = 0
-        closeBtn.ZIndex = 10
         closeBtn.Parent = header
         local cb = Instance.new("UICorner")
         cb.CornerRadius = UDim.new(0, 8)
         cb.Parent = closeBtn
-
+        
         local toggleBtn = Instance.new("TextButton")
-        toggleBtn.Size = UDim2.new(0.10, 0, 0.5, 0)
-        toggleBtn.Position = UDim2.new(0.76, 0, 0.25, 0)
+        toggleBtn.Size = UDim2.new(0.06, 0, 0.5, 0)
+        toggleBtn.Position = UDim2.new(0.8, 0, 0.25, 0)
         toggleBtn.BackgroundColor3 = Color3.fromRGB(180, 60, 255)
         toggleBtn.BackgroundTransparency = 0.15
         toggleBtn.Text = "−"
@@ -465,39 +461,36 @@ function StartObsidianBlack()
         toggleBtn.TextScaled = true
         toggleBtn.Font = Enum.Font.GothamBold
         toggleBtn.BorderSizePixel = 0
-        toggleBtn.ZIndex = 10
         toggleBtn.Parent = header
         local tb = Instance.new("UICorner")
         tb.CornerRadius = UDim.new(0, 8)
         tb.Parent = toggleBtn
-
-        -- РАЗМЕР (ЧЕРНЫЙ) — посередине-право, НЕ перекрывает toggle/close
+        
+        -- РАЗМЕР (ЧЕРНЫЙ)
         local sizeFrame = Instance.new("Frame")
-        sizeFrame.Size = UDim2.new(0.24, 0, 0, 32)
-        sizeFrame.Position = UDim2.new(0.50, 0, 0.5, -16)
+        sizeFrame.Size = UDim2.new(0.18, 0, 0, 28)
+        sizeFrame.Position = UDim2.new(0.76, 0, 0.02, 0)
         sizeFrame.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
         sizeFrame.BackgroundTransparency = 0.1
         sizeFrame.BorderSizePixel = 1
         sizeFrame.BorderColor3 = Color3.fromRGB(180, 60, 255)
-        sizeFrame.ZIndex = 5
-        sizeFrame.Parent = header
+        sizeFrame.Parent = main
         local sf = Instance.new("UICorner")
         sf.CornerRadius = UDim.new(0, 8)
         sf.Parent = sizeFrame
         
         local sizeLabel = Instance.new("TextLabel")
-        sizeLabel.Size = UDim2.new(0.34, 0, 1, 0)
-        sizeLabel.Position = UDim2.new(0.33, 0, 0, 0)
+        sizeLabel.Size = UDim2.new(0.3, 0, 1, 0)
+        sizeLabel.Position = UDim2.new(0.35, 0, 0, 0)
         sizeLabel.BackgroundTransparency = 1
         sizeLabel.Text = "100%"
         sizeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
         sizeLabel.TextScaled = true
         sizeLabel.Font = Enum.Font.GothamBold
-        sizeLabel.ZIndex = 6
         sizeLabel.Parent = sizeFrame
-
+        
         local minusBtn = Instance.new("TextButton")
-        minusBtn.Size = UDim2.new(0.33, 0, 1, 0)
+        minusBtn.Size = UDim2.new(0.3, 0, 1, 0)
         minusBtn.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
         minusBtn.BackgroundTransparency = 0.2
         minusBtn.Text = "−"
@@ -505,15 +498,14 @@ function StartObsidianBlack()
         minusBtn.TextScaled = true
         minusBtn.Font = Enum.Font.GothamBold
         minusBtn.BorderSizePixel = 0
-        minusBtn.ZIndex = 6
         minusBtn.Parent = sizeFrame
         local mb = Instance.new("UICorner")
         mb.CornerRadius = UDim.new(0, 6)
         mb.Parent = minusBtn
-
+        
         local plusBtn = Instance.new("TextButton")
-        plusBtn.Size = UDim2.new(0.33, 0, 1, 0)
-        plusBtn.Position = UDim2.new(0.67, 0, 0, 0)
+        plusBtn.Size = UDim2.new(0.3, 0, 1, 0)
+        plusBtn.Position = UDim2.new(0.7, 0, 0, 0)
         plusBtn.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
         plusBtn.BackgroundTransparency = 0.2
         plusBtn.Text = "+"
@@ -521,7 +513,6 @@ function StartObsidianBlack()
         plusBtn.TextScaled = true
         plusBtn.Font = Enum.Font.GothamBold
         plusBtn.BorderSizePixel = 0
-        plusBtn.ZIndex = 6
         plusBtn.Parent = sizeFrame
         local pb = Instance.new("UICorner")
         pb.CornerRadius = UDim.new(0, 6)
@@ -806,7 +797,7 @@ function StartObsidianBlack()
         local sizeInfo = Instance.new("TextLabel")
         sizeInfo.Size = UDim2.new(1, -10, 0, 60)
         sizeInfo.BackgroundTransparency = 1
-        sizeInfo.Text = "Используй кнопки + и − в хедере для изменения размера ВСЕГО GUI (плавное масштабирование, без раздвоения).\n\nПеретаскивание: тянни за заголовок окна.\nКружок ◉ справа по центру — скрыть/показать GUI с анимацией (тоже перетаскиваемый).\n\nКнопки ✕ (закрыть) и − (свернуть) — справа в хедере, поверх size-блока.\n\nГорячие клавиши:\nRightShift — скрыть/показать\nR — аварийное закрытие"
+        sizeInfo.Text = "Используй кнопки + и − вверху окна для изменения размера (масштабирование плавное, без раздвоения).\n\nПеретаскивание: тянни за заголовок окна.\nКружок ◉ справа — скрыть/показать GUI с анимацией (тоже перетаскиваемый).\n\nГорячие клавиши:\nRightShift — скрыть/показать\nR — аварийное закрытие"
         sizeInfo.TextColor3 = Color3.fromRGB(220, 220, 255)
         sizeInfo.TextScaled = true
         sizeInfo.Font = Enum.Font.Gotham
@@ -874,8 +865,8 @@ function StartObsidianBlack()
         -- ПЛАВАЮЩИЙ КРУЖОК (СКРЫТИЕ С АНИМАЦИЕЙ)
         -- ============================================
         local circleBtn = Instance.new("TextButton")
-        circleBtn.Size = UDim2.new(0, 60, 0, 60)
-        circleBtn.Position = UDim2.new(1, -80, 0.5, -30)
+        circleBtn.Size = UDim2.new(0, 48, 0, 48)
+        circleBtn.Position = UDim2.new(1, -68, 0.5, -24)
         circleBtn.BackgroundColor3 = Color3.fromRGB(180, 60, 255)
         circleBtn.BackgroundTransparency = 0.1
         circleBtn.Text = "◉"
@@ -884,53 +875,37 @@ function StartObsidianBlack()
         circleBtn.Font = Enum.Font.GothamBold
         circleBtn.BorderSizePixel = 0
         circleBtn.AutoButtonColor = false
-        circleBtn.ZIndex = 100  -- поверх всего
         circleBtn.Parent = gui
         local cbc = Instance.new("UICorner")
         cbc.CornerRadius = UDim.new(1, 0)  -- идеальный круг
         cbc.Parent = circleBtn
 
-        -- Внешнее неоновое кольцо (крупнее, заметнее)
+        -- Внешнее неоновое кольцо
         local circleRing = Instance.new("Frame")
-        circleRing.Size = UDim2.new(1, 12, 1, 12)
-        circleRing.Position = UDim2.new(0, -6, 0, -6)
+        circleRing.Size = UDim2.new(1, 8, 1, 8)
+        circleRing.Position = UDim2.new(0, -4, 0, -4)
         circleRing.BackgroundTransparency = 1
-        circleRing.BorderSizePixel = 3
+        circleRing.BorderSizePixel = 2
         circleRing.BorderColor3 = Color3.fromRGB(180, 60, 255)
-        circleRing.ZIndex = 99
         circleRing.Parent = circleBtn
         local crc = Instance.new("UICorner")
         crc.CornerRadius = UDim.new(1, 0)
         crc.Parent = circleRing
 
-        -- Дополнительная мягкая внешняя подсветка
-        local circleGlow = Instance.new("Frame")
-        circleGlow.Size = UDim2.new(1, 24, 1, 24)
-        circleGlow.Position = UDim2.new(0, -12, 0, -12)
-        circleGlow.BackgroundColor3 = Color3.fromRGB(180, 60, 255)
-        circleGlow.BackgroundTransparency = 0.85
-        circleGlow.BorderSizePixel = 0
-        circleGlow.ZIndex = 98
-        circleGlow.Parent = circleBtn
-        local cgc = Instance.new("UICorner")
-        cgc.CornerRadius = UDim.new(1, 0)
-        cgc.Parent = circleGlow
-
-        -- Подсказка (крупнее, чтобы было заметно)
+        -- Подсказка
         local circleTip = Instance.new("TextLabel")
-        circleTip.Size = UDim2.new(0, 180, 0, 28)
+        circleTip.Size = UDim2.new(0, 160, 0, 22)
         circleTip.AnchorPoint = Vector2.new(1, 0.5)
-        circleTip.Position = UDim2.new(0, -14, 0.5, 0)
+        circleTip.Position = UDim2.new(0, -10, 0.5, 0)
         circleTip.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        circleTip.BackgroundTransparency = 0.2
-        circleTip.Text = "  Скрыть GUI  "
+        circleTip.BackgroundTransparency = 0.3
+        circleTip.Text = "Скрыть GUI"
         circleTip.TextColor3 = Color3.fromRGB(255, 255, 255)
         circleTip.TextScaled = true
         circleTip.Font = Enum.Font.GothamBold
         circleTip.BorderSizePixel = 1
         circleTip.BorderColor3 = Color3.fromRGB(180, 60, 255)
         circleTip.Visible = false
-        circleTip.ZIndex = 101
         circleTip.Parent = circleBtn
         local ctc = Instance.new("UICorner")
         ctc.CornerRadius = UDim.new(0, 6)
@@ -970,14 +945,14 @@ function StartObsidianBlack()
             local pulse = TweenService:Create(
                 circleBtn,
                 TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-                {Size = UDim2.new(0, 76, 0, 76)}
+                {Size = UDim2.new(0, 62, 0, 62)}
             )
             pulse:Play()
             pulse.Completed:Connect(function()
                 TweenService:Create(
                     circleBtn,
                     TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                    {Size = UDim2.new(0, 60, 0, 60)}
+                    {Size = UDim2.new(0, 48, 0, 48)}
                 ):Play()
             end)
 
@@ -1019,14 +994,14 @@ function StartObsidianBlack()
             local pulse = TweenService:Create(
                 circleBtn,
                 TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-                {Size = UDim2.new(0, 76, 0, 76)}
+                {Size = UDim2.new(0, 62, 0, 62)}
             )
             pulse:Play()
             pulse.Completed:Connect(function()
                 TweenService:Create(
                     circleBtn,
                     TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                    {Size = UDim2.new(0, 60, 0, 60)}
+                    {Size = UDim2.new(0, 48, 0, 48)}
                 ):Play()
             end)
         end
