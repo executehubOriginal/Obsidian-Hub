@@ -1350,28 +1350,56 @@ function StartObsidianBlack()
                 end
             end
             
-            -- SPEED / JUMP
+            -- SPEED / JUMP / AUTO SPRINT / MOON JUMP — единый блок без конфликтов
             local hum = getHumanoid()
             if hum then
+                -- Базовая скорость
+                local baseSpeed = settings.speed
                 if settings.speedHackOn then
-                    hum.WalkSpeed = settings.speed * settings.speedHackMultiplier
-                else
-                    hum.WalkSpeed = settings.speed
+                    baseSpeed = settings.speed * settings.speedHackMultiplier
                 end
+                -- Auto Sprint: +50% при движении вперёд (фиксированное значение, не умножение)
+                if settings.autoSprint then
+                    local moving = UserInputService:IsKeyDown(Enum.KeyCode.W)
+                                or UserInputService:IsKeyDown(Enum.KeyCode.A)
+                                or UserInputService:IsKeyDown(Enum.KeyCode.S)
+                                or UserInputService:IsKeyDown(Enum.KeyCode.D)
+                    if moving then
+                        baseSpeed = baseSpeed * 1.5
+                    end
+                end
+                hum.WalkSpeed = baseSpeed
+
+                -- Базовый прыжок
+                local baseJump = settings.jump
                 if settings.jumpHackOn then
-                    hum.JumpPower = settings.jump * settings.jumpHackMultiplier
-                else
-                    hum.JumpPower = settings.jump
+                    baseJump = settings.jump * settings.jumpHackMultiplier
                 end
+                -- Moon Jump: переопределяет прыжок на moonJumpPower
+                if settings.moonJump then
+                    baseJump = settings.moonJumpPower
+                end
+                hum.JumpPower = baseJump
             end
             
             -- NOCLIP
-            if settings.noclipOn then
+            if settings.noclipOn or settings.noClipFlyOn then
                 local char = lp.Character
                 if char then
                     for _, p in ipairs(char:GetDescendants()) do
                         if p:IsA("BasePart") and p.CanCollide then
                             p.CanCollide = false
+                        end
+                    end
+                end
+            else
+                -- Восстановить CanCollide при выключении
+                local char = lp.Character
+                if char then
+                    for _, p in ipairs(char:GetDescendants()) do
+                        if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
+                            -- HumanoidRootPart обычно CanCollide=false
+                            p.CanCollide = true
                         end
                     end
                 end
@@ -1396,7 +1424,7 @@ function StartObsidianBlack()
                 if flyBody then flyBody:Destroy() flyBody = nil end
             end
             
-            -- BHOP — автопрыжок при движении
+            -- BHOP — автопрыжок при движении (с проверкой состояния, без спама)
             if settings.bhop then
                 local hum = getHumanoid()
                 local root = getRoot()
@@ -1405,19 +1433,12 @@ function StartObsidianBlack()
                                 or UserInputService:IsKeyDown(Enum.KeyCode.A)
                                 or UserInputService:IsKeyDown(Enum.KeyCode.S)
                                 or UserInputService:IsKeyDown(Enum.KeyCode.D)
-                    if moving and hum.FloorMaterial ~= Enum.Material.Air then
+                    local state = hum:GetState()
+                    -- Прыгаем только если на земле и не в прыжке
+                    if moving and hum.FloorMaterial ~= Enum.Material.Air
+                    and state ~= Enum.HumanoidStateType.Jumping
+                    and state ~= Enum.HumanoidStateType.Freefall then
                         hum:ChangeState(Enum.HumanoidStateType.Jumping)
-                    end
-                end
-            end
-
-            -- AUTO SPRINT
-            if settings.autoSprint then
-                local hum = getHumanoid()
-                if hum then
-                    local moving = UserInputService:IsKeyDown(Enum.KeyCode.W)
-                    if moving then
-                        hum.WalkSpeed = hum.WalkSpeed * 1.3
                     end
                 end
             end
@@ -1478,13 +1499,7 @@ function StartObsidianBlack()
                 end
             end
 
-            -- MOON JUMP — высокий прыжок по умолчанию (постоянно)
-            if settings.moonJump then
-                local hum = getHumanoid()
-                if hum then
-                    hum.JumpPower = settings.moonJumpPower
-                end
-            end
+            -- (Moon Jump уже обрабатывается в блоке SPEED/JUMP выше)
 
             -- SLIDE — рывок при Shift (используем slideSpeed)
             if settings.slideOn then
@@ -1520,14 +1535,126 @@ function StartObsidianBlack()
                 end
             end
 
+            -- GOD MODE — установить MaxHealth и Health
+            if settings.godModeOn then
+                local hum = getHumanoid()
+                if hum then
+                    if hum.MaxHealth ~= settings.godModeHealth then
+                        hum.MaxHealth = settings.godModeHealth
+                    end
+                    if hum.Health < settings.godModeHealth then
+                        hum.Health = settings.godModeHealth
+                    end
+                end
+            end
+
+            -- INVISIBLE — сделать персонажа прозрачным
+            if settings.invisOn then
+                local char = lp.Character
+                if char then
+                    for _, p in ipairs(char:GetDescendants()) do
+                        if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
+                            local target = settings.invisOpacity
+                            if p:IsA("Decal") then target = settings.invisOpacity end
+                            if p.Transparency ~= target then
+                                p.Transparency = target
+                            end
+                        end
+                    end
+                end
+            else
+                -- Восстановить прозрачность
+                local char = lp.Character
+                if char then
+                    for _, p in ipairs(char:GetDescendants()) do
+                        if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
+                            local default = 0
+                            if p.Name == "Head" then default = 1 end  -- у Head обычно 1 (лицо на декале)
+                            if p.Transparency > 0.5 and p.Transparency < 1 then
+                                p.Transparency = default
+                            end
+                        end
+                    end
+                end
+            end
+
+            -- NOCLIP FLY — комбинация noclip + fly с отдельной скоростью
+            if settings.noClipFlyOn then
+                local char = lp.Character
+                local root = getRoot()
+                if char and root then
+                    -- Noclip
+                    for _, p in ipairs(char:GetDescendants()) do
+                        if p:IsA("BasePart") and p.CanCollide then
+                            p.CanCollide = false
+                        end
+                    end
+                    -- Fly с BodyVelocity
+                    if not flyBody then
+                        flyBody = Instance.new("BodyVelocity")
+                        flyBody.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+                        flyBody.Parent = root
+                    end
+                    local dir = Vector3.zero
+                    if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir = dir + Camera.CFrame.LookVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir = dir - Camera.CFrame.LookVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir = dir - Camera.CFrame.RightVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir = dir + Camera.CFrame.RightVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0) end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir = dir - Vector3.new(0, 1, 0) end
+                    flyBody.Velocity = dir * settings.noClipFlySpeed * 10
+                end
+            else
+                -- Если обычный fly тоже выключен — убрать BodyVelocity
+                if not settings.flyOn and flyBody then
+                    flyBody:Destroy()
+                    flyBody = nil
+                end
+            end
+
             -- FOV
             if settings.fovChanger then
                 Camera.FieldOfView = settings.fovValue
+            else
+                if Camera.FieldOfView ~= 70 then
+                    Camera.FieldOfView = 70
+                end
             end
 
             -- BRIGHTNESS
             if settings.brightness then
                 Lighting.Brightness = settings.brightnessValue
+            else
+                if Lighting.Brightness ~= 2 then
+                    Lighting.Brightness = 2
+                end
+            end
+
+            -- FOG — убрать туман (увеличить FogEnd)
+            if settings.fogOn then
+                Lighting.FogEnd = 1e9
+                Lighting.FogStart = 1e9
+            else
+                if Lighting.FogEnd > 1e8 then
+                    Lighting.FogEnd = 100000
+                    Lighting.FogStart = 0
+                end
+            end
+
+            -- BLOOM — добавить/убрать BloomEffect
+            if settings.bloom then
+                if not bloomEffect then
+                    bloomEffect = Instance.new("BloomEffect")
+                    bloomEffect.Parent = Lighting
+                end
+                bloomEffect.Intensity = 0.8
+                bloomEffect.Size = 24
+                bloomEffect.Threshold = 0.95
+            else
+                if bloomEffect then
+                    bloomEffect:Destroy()
+                    bloomEffect = nil
+                end
             end
 
             -- CROSSHAIR
@@ -1543,21 +1670,137 @@ function StartObsidianBlack()
             end
         end)
         
-        -- AUTO FARM / AUTO CLICK / AUTO COLLECT LOOP
+        -- ============================================
+        -- FIRE LOOP — авто-огонь (fireOn) и burst fire
+        -- ============================================
         task.spawn(function()
-            while task.wait(0.2) do
-                local root = getRoot()
-                if not root then else
-                    -- Auto Click
-                    if settings.autoClickOn then
-                        -- простая авто-клик реализация через mouse click эмуляцию (если поддерживается executor)
+            while task.wait(0.05) do
+                -- Fire Rate (постоянный авто-огонь)
+                if settings.fireOn then
+                    if tick() - lastShot > settings.fireRate then
+                        lastShot = tick()
                         pcall(function()
                             if mouse1press then
                                 mouse1press()
-                                task.wait(settings.autoClickDelay)
+                                task.wait(0.02)
                                 mouse1release()
                             end
                         end)
+                    end
+                end
+
+                -- Burst Fire (очереди) — стрелять burstCount раз с малым интервалом
+                if settings.burstFire then
+                    if tick() - lastShot > settings.fireRate * 3 then
+                        lastShot = tick()
+                        task.spawn(function()
+                            pcall(function()
+                                if mouse1press then
+                                    for i = 1, settings.burstCount do
+                                        mouse1press()
+                                        task.wait(0.02)
+                                        mouse1release()
+                                        task.wait(0.03)
+                                    end
+                                end
+                            end)
+                        end)
+                    end
+                end
+            end
+        end)
+
+        -- ============================================
+        -- AUTO CLICK LOOP — клики с autoClickDelay
+        -- ============================================
+        task.spawn(function()
+            while task.wait(settings.autoClickDelay) do
+                if settings.autoClickOn then
+                    pcall(function()
+                        if mouse1press then
+                            mouse1press()
+                            task.wait(0.02)
+                            mouse1release()
+                        end
+                    end)
+                end
+            end
+        end)
+
+        -- ============================================
+        -- AUTO COLLECT LOOP — собирать предметы рядом
+        -- ============================================
+        task.spawn(function()
+            while task.wait(settings.autoCollectDelay) do
+                if settings.autoCollectOn then
+                    local root = getRoot()
+                    if root then
+                        for _, obj in ipairs(workspace:GetDescendants()) do
+                            if obj:IsA("BasePart") and not obj.Anchored then
+                                local dist = (obj.Position - root.Position).Magnitude
+                                if dist <= settings.autoCollectRange then
+                                    -- Проверяем что это предмет (не часть карты)
+                                    local name = string.lower(obj.Name)
+                                    local isItem = name:match("coin") or name:match("gem")
+                                                or name:match("item") or name:match("orb")
+                                                or name:match("pickup") or name:match("loot")
+                                                or name:match("money") or name:match("cash")
+                                                or name:match("drop") or name:match("reward")
+                                    if isItem then
+                                        pcall(function()
+                                            -- Телепортировать предмет к игроку
+                                            obj.CFrame = root.CFrame
+                                            -- Или firetouch если доступен
+                                            if firetouchinterest then
+                                                firetouchinterest(root, obj, 0)
+                                                firetouchinterest(root, obj, 1)
+                                            end
+                                        end)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+
+        -- ============================================
+        -- AUTO FARM LOOP — атаковать ближайших NPC
+        -- ============================================
+        task.spawn(function()
+            while task.wait(settings.autoFarmDelay) do
+                if settings.autoFarmOn then
+                    local root = getRoot()
+                    if root then
+                        -- Ищем NPC (модели с Humanoid, но не игроки)
+                        for _, obj in ipairs(workspace:GetDescendants()) do
+                            if obj:IsA("Model") then
+                                local hum = obj:FindFirstChildOfClass("Humanoid")
+                                local objRoot = obj:FindFirstChild("HumanoidRootPart")
+                                -- Проверяем что это не игрок
+                                local isPlayer = false
+                                for _, p in ipairs(Players:GetPlayers()) do
+                                    if p.Character == obj then isPlayer = true break end
+                                end
+                                if hum and objRoot and not isPlayer and hum.Health > 0 then
+                                    local dist = (objRoot.Position - root.Position).Magnitude
+                                    if dist <= settings.autoFarmRange then
+                                        pcall(function()
+                                            -- Телепортировать к NPC и атаковать
+                                            if firetouchinterest then
+                                                firetouchinterest(root, objRoot, 0)
+                                                firetouchinterest(root, objRoot, 1)
+                                            end
+                                            -- Если есть hit-проджение экзекутора
+                                            if firesignal then
+                                                -- попытка атаки через сигналы
+                                            end
+                                        end)
+                                    end
+                                end
+                            end
+                        end
                     end
                 end
             end
