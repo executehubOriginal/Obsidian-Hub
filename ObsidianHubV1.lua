@@ -568,12 +568,12 @@ function StartObsidianBlack()
         end
 
         minusBtn.MouseButton1Click:Connect(function()
-            uiSize = math.max(0.7, uiSize - 0.05)
+            uiSize = math.max(0.10, uiSize - 0.05)
             applyScale()
         end)
 
         plusBtn.MouseButton1Click:Connect(function()
-            uiSize = math.min(1.5, uiSize + 0.05)
+            uiSize = math.min(2.0, uiSize + 0.05)
             applyScale()
         end)
         
@@ -841,7 +841,7 @@ function StartObsidianBlack()
         local sizeInfo = Instance.new("TextLabel")
         sizeInfo.Size = UDim2.new(1, -10, 0, 60)
         sizeInfo.BackgroundTransparency = 1
-        sizeInfo.Text = "Используй кнопки + и − в хедере для изменения размера ВСЕГО GUI (плавное масштабирование, без раздвоения).\n\nПеретаскивание: тянни за заголовок окна.\nКружок ◉ справа по центру — скрыть/показать GUI с анимацией (тоже перетаскиваемый).\n\nКнопки ✕ (закрыть) и − (свернуть) — справа в хедере, поверх size-блока.\n\nГорячие клавиши:\nRightShift — скрыть/показать\nR — аварийное закрытие"
+        sizeInfo.Text = "Используй кнопки + и − в хедере для изменения размера ВСЕГО GUI (масштаб от 10% до 200%, плавно, без раздвоения).\n\nПеретаскивание: тянни за заголовок окна.\nКружок ◉ справа по центру — скрыть/показать GUI с анимацией (тоже перетаскиваемый).\n\nКнопки ✕ (закрыть) и − (свернуть) — справа в хедере, поверх size-блока.\n\nГорячие клавиши:\nRightShift — скрыть/показать\nR — аварийное закрытие\n\nMOVE-функции:\nFly — W/A/S/D\nSlide/Dash — Shift / E\nTeleport — T"
         sizeInfo.TextColor3 = Color3.fromRGB(220, 220, 255)
         sizeInfo.TextScaled = true
         sizeInfo.Font = Enum.Font.Gotham
@@ -1256,7 +1256,7 @@ function StartObsidianBlack()
     -- ============================================
     local function mainLoop()
         RunService.RenderStepped:Connect(function()
-            -- AIM
+            -- AIM (полностью отключается при aimOn=false)
             if settings.aimOn then
                 local t = getClosestPlayer()
                 if t and t.Character then
@@ -1267,9 +1267,84 @@ function StartObsidianBlack()
                             local vel = part.AssemblyLinearVelocity
                             targetPos = targetPos + vel * 0.1
                         end
-                        local currentCF = Camera.CFrame
-                        local targetCF = CFrame.new(currentCF.Position, targetPos)
-                        Camera.CFrame = currentCF:Lerp(targetCF, settings.smooth)
+                        -- Aim Lock — фиксируем цель, не ищем новую каждый кадр
+                        if settings.aimLock then
+                            if not aimLockTarget or not aimLockTarget.Character
+                            or not aimLockTarget.Character:FindFirstChild(settings.aimPart) then
+                                aimLockTarget = t
+                            end
+                            part = aimLockTarget.Character:FindFirstChild(settings.aimPart)
+                            or aimLockTarget.Character:FindFirstChild("Head")
+                            targetPos = part.Position
+                            if settings.prediction then
+                                targetPos = targetPos + part.AssemblyLinearVelocity * 0.1
+                            end
+                        else
+                            aimLockTarget = nil
+                        end
+
+                        -- Visible Check — не наводить, если цель за стеной
+                        local canAim = true
+                        if settings.visibleCheck and not settings.wallOn then
+                            local origin = Camera.CFrame.Position
+                            local params = RaycastParams.new()
+                            params.FilterType = Enum.RaycastFilterType.Exclude
+                            params.FilterDescendantsInstances = {lp.Character}
+                            local hit = workspace:Raycast(origin, targetPos - origin, params)
+                            if hit and hit.Instance then
+                                local model = hit.Instance:FindFirstAncestorOfClass("Model")
+                                if not model or model ~= t.Character then
+                                    canAim = false
+                                end
+                            end
+                        end
+
+                        if canAim then
+                            local currentCF = Camera.CFrame
+                            local targetCF = CFrame.new(currentCF.Position, targetPos)
+                            Camera.CFrame = currentCF:Lerp(targetCF, settings.smooth)
+
+                            -- Silent Aim / Trigger Bot — эмуляция выстрела
+                            if (settings.silentOn or settings.triggerBot) and tick() - lastShot > settings.fireRate then
+                                lastShot = tick()
+                                pcall(function()
+                                    if mouse1press then
+                                        mouse1press()
+                                        task.wait(0.02)
+                                        mouse1release()
+                                    end
+                                end)
+                            end
+                        end
+                    end
+                end
+            else
+                -- aim выключен — сбрасываем залоченную цель
+                aimLockTarget = nil
+            end
+
+            -- Kill Aura — работает независимо от aimOn, но требует killAuraOn=true
+            if settings.killAuraOn then
+                local root = getRoot()
+                local hum = getHumanoid()
+                if root and hum and hum.Health > 0 then
+                    for _, p in ipairs(Players:GetPlayers()) do
+                        if p ~= lp and p.Character then
+                            local targetRoot = p.Character:FindFirstChild("HumanoidRootPart")
+                            local targetHum = p.Character:FindFirstChildOfClass("Humanoid")
+                            if targetRoot and targetHum and targetHum.Health > 0 then
+                                local dist = (targetRoot.Position - root.Position).Magnitude
+                                if dist <= settings.killAuraRange then
+                                    pcall(function()
+                                        -- попытка нанести урон черезtouch-эвенты (зависит от executor)
+                                        if firetouchinterest then
+                                            firetouchinterest(root, targetRoot, 0)
+                                            firetouchinterest(root, targetRoot, 1)
+                                        end
+                                    end)
+                                end
+                            end
+                        end
                     end
                 end
             end
@@ -1320,16 +1395,140 @@ function StartObsidianBlack()
                 if flyBody then flyBody:Destroy() flyBody = nil end
             end
             
+            -- BHOP — автопрыжок при движении
+            if settings.bhop then
+                local hum = getHumanoid()
+                local root = getRoot()
+                if hum and root then
+                    local moving = UserInputService:IsKeyDown(Enum.KeyCode.W)
+                                or UserInputService:IsKeyDown(Enum.KeyCode.A)
+                                or UserInputService:IsKeyDown(Enum.KeyCode.S)
+                                or UserInputService:IsKeyDown(Enum.KeyCode.D)
+                    if moving and hum.FloorMaterial ~= Enum.Material.Air then
+                        hum:ChangeState(Enum.HumanoidStateType.Jumping)
+                    end
+                end
+            end
+
+            -- AUTO SPRINT
+            if settings.autoSprint then
+                local hum = getHumanoid()
+                if hum then
+                    local moving = UserInputService:IsKeyDown(Enum.KeyCode.W)
+                    if moving then
+                        hum.WalkSpeed = hum.WalkSpeed * 1.3
+                    end
+                end
+            end
+
+            -- ANTI STUN — не даём Humanoid войти в стан-состояния
+            if settings.antiStun then
+                local hum = getHumanoid()
+                if hum then
+                    if hum:GetState() == Enum.HumanoidStateType.PlatformStanding
+                    or hum:GetState() == Enum.HumanoidStateType.Stunned
+                    or hum:GetState() == Enum.HumanoidStateType.FallingDown
+                    or hum:GetState() == Enum.HumanoidStateType.Ragdoll then
+                        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+                    end
+                end
+            end
+
+            -- NO FALL — обнуляем Y-скорость при падении
+            if settings.noFall then
+                local root = getRoot()
+                if root and root.AssemblyLinearVelocity.Y < -5 then
+                    root.AssemblyLinearVelocity = Vector3.new(
+                        root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z
+                    )
+                end
+            end
+
+            -- WATER WALK — если под ногами вода, ставим CanCollide на невидимую платформу
+            if settings.waterWalk then
+                local root = getRoot()
+                local hum = getHumanoid()
+                if root and hum then
+                    local rayParams = RaycastParams.new()
+                    rayParams.FilterDescendantsInstances = {lp.Character}
+                    local hit = workspace:Raycast(root.Position, Vector3.new(0, -4, 0), rayParams)
+                    if hit and hit.Material == Enum.Material.Water then
+                        root.AssemblyLinearVelocity = Vector3.new(
+                            root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z
+                        )
+                    end
+                end
+            end
+
+            -- SPIDER MAN — автоподъём по стенам при движении вперёд
+            if settings.spiderMan then
+                local root = getRoot()
+                local hum = getHumanoid()
+                if root and hum then
+                    local moving = UserInputService:IsKeyDown(Enum.KeyCode.W)
+                    if moving then
+                        local rayParams = RaycastParams.new()
+                        rayParams.FilterDescendantsInstances = {lp.Character}
+                        local hit = workspace:Raycast(root.Position, Camera.CFrame.LookVector * 2, rayParams)
+                        if hit and hit.Instance and hit.Instance.CanCollide then
+                            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+                        end
+                    end
+                end
+            end
+
+            -- MOON JUMP — высокий прыжок по умолчанию (постоянно)
+            if settings.moonJump then
+                local hum = getHumanoid()
+                if hum then
+                    hum.JumpPower = settings.moonJumpPower
+                end
+            end
+
+            -- SLIDE — рывок при Shift (используем slideSpeed)
+            if settings.slideOn then
+                local root = getRoot()
+                local hum = getHumanoid()
+                if root and hum and UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+                    if tick() - dashCooldown > 1 then
+                        dashCooldown = tick()
+                        root.AssemblyLinearVelocity = Camera.CFrame.LookVector * settings.slideSpeed
+                    end
+                end
+            end
+
+            -- DASH — рывок по клавише E (только при dashOn=true)
+            if settings.dashOn then
+                local root = getRoot()
+                if root and UserInputService:IsKeyDown(Enum.KeyCode.E) then
+                    if tick() - dashCooldown > 0.5 then
+                        dashCooldown = tick()
+                        root.AssemblyLinearVelocity = Camera.CFrame.LookVector * settings.dashDistance
+                    end
+                end
+            end
+
+            -- TELEPORT — телепорт вперёд по клавише T
+            if settings.teleportOn then
+                local root = getRoot()
+                if root and UserInputService:IsKeyDown(Enum.KeyCode.T) then
+                    if tick() - lastTeleport > 0.5 then
+                        lastTeleport = tick()
+                        root.CFrame = root.CFrame + Camera.CFrame.LookVector * settings.teleportDistance
+                    end
+                end
+            end
+
             -- FOV
             if settings.fovChanger then
                 Camera.FieldOfView = settings.fovValue
             end
-            
+
             -- BRIGHTNESS
             if settings.brightness then
                 Lighting.Brightness = settings.brightnessValue
             end
-            
+
             -- CROSSHAIR
             if crosshair then
                 crosshair.Enabled = settings.crosshairOn
@@ -1365,6 +1564,18 @@ function StartObsidianBlack()
     end
     
     -- ============================================
+    -- СБРОС AIR-JUMP ПРИ ПРИЗЕМЛЕНИИ
+    -- ============================================
+    task.spawn(function()
+        while task.wait(0.2) do
+            local hum = getHumanoid()
+            if hum and hum.FloorMaterial ~= Enum.Material.Air then
+                jumpCount = 0
+            end
+        end
+    end)
+
+    -- ============================================
     -- ВВОД
     -- ============================================
     UserInputService.InputBegan:Connect(function(input, gpe)
@@ -1375,9 +1586,20 @@ function StartObsidianBlack()
         elseif input.KeyCode == Enum.KeyCode.R then
             local gui = lp:FindFirstChild("PlayerGui") and lp.PlayerGui:FindFirstChild("ObsidianBlack")
             if gui then gui:Destroy() end
-        elseif settings.infiniteJump and input.KeyCode == Enum.KeyCode.Space then
+        elseif input.KeyCode == Enum.KeyCode.Space then
             local hum = getHumanoid()
-            if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+            if hum then
+                -- Infinite Jump: прыжок каждый раз при нажатии Space (даже в воздухе)
+                if settings.infiniteJump then
+                    hum:ChangeState(Enum.HumanoidStateType.Jumping)
+                -- Air Jump: можно прыгать в воздухе только один раз (после основного)
+                elseif settings.airJump and hum:GetState() == Enum.HumanoidStateType.Freefall then
+                    if jumpCount < 1 then
+                        hum:ChangeState(Enum.HumanoidStateType.Jumping)
+                        jumpCount = jumpCount + 1
+                    end
+                end
+            end
         end
     end)
     
