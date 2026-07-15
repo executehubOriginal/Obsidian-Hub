@@ -228,7 +228,7 @@ function StartObsidianBlack()
     -- ============================================
     local settings = {
         -- AIM (10)
-        aimOn = true,
+        aimOn = false,
         silentOn = false,
         wallOn = false,
         aimLock = false,
@@ -236,8 +236,8 @@ function StartObsidianBlack()
         smooth = 0.12,
         fov = 180,
         aimPart = "Head",
-        prediction = true,
-        visibleCheck = true,
+        prediction = false,
+        visibleCheck = false,
         
         -- FIRE (8)
         fireOn = false,
@@ -250,7 +250,7 @@ function StartObsidianBlack()
         antiAfk = false,
         
         -- ESP (10)
-        espOn = true,
+        espOn = false,
         espType = "Highlight",
         espColor = "Violet",
         showHealth = true,
@@ -285,7 +285,7 @@ function StartObsidianBlack()
         teleportDistance = 50,
         
         -- VISUAL (8)
-        crosshairOn = true,
+        crosshairOn = false,
         crosshairColor = "Violet",
         crosshairStyle = "Dot",
         fovChanger = false,
@@ -1256,7 +1256,8 @@ function StartObsidianBlack()
     -- ============================================
     local function mainLoop()
         RunService.RenderStepped:Connect(function()
-            -- AIM (полностью отключается при aimOn=false)
+            -- AIM — полностью отключён, камера управляется игроком
+            -- Никаких вызовов Camera.CFrame, getClosestPlayer() и т.д.
             if settings.aimOn then
                 local t = getClosestPlayer()
                 if t and t.Character then
