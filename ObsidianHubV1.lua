@@ -1162,11 +1162,6 @@ function StartObsidianBlack()
         local closest = nil
         local shortest = settings.radius
         local mousePos = UserInputService:GetMouseLocation()
-        -- ИСПРАВЛЕНО: используем fov как максимальный угол отклонения от центра экрана
-        -- Если fov < 360, то цель должна быть в пределах этого угла от взгляда камеры
-        local maxFov = settings.fov or 360
-        local camPos = Camera.CFrame.Position
-        local camLook = Camera.CFrame.LookVector
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= lp and p.Character then
                 local part = p.Character:FindFirstChild(settings.aimPart) or p.Character:FindFirstChild("HumanoidRootPart")
@@ -1176,13 +1171,8 @@ function StartObsidianBlack()
                     if onScreen then
                         local dist = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
                         if dist < shortest then
-                            -- Дополнительная проверка по FOV (угол между взглядом камеры и целью)
-                            local dirToTarget = (part.Position - camPos).Unit
-                            local angleDeg = math.deg(math.acos(math.clamp(dirToTarget:Dot(camLook), -1, 1)))
-                            if angleDeg <= maxFov / 2 then
-                                shortest = dist
-                                closest = p
-                            end
+                            shortest = dist
+                            closest = p
                         end
                     end
                 end
@@ -1192,12 +1182,10 @@ function StartObsidianBlack()
     end
     
     -- ============================================
-    -- ESP СИСТЕМА (ИСПРАВЛЕНО: реализованы ВСЕ функции — Health, Name, Distance, Tracer, Box, Skeleton, Glow)
+    -- ESP СИСТЕМА
     -- ============================================
-    local espObjects = {}        -- содержит таблицы объектов per-player
-    local espGui = nil           -- ScreenGui для tracer/box
-    local espDrawings = {}       -- динамические объекты tracer/box per-player
-
+    local espObjects = {}
+    
     local colorMap = {
         Violet = Color3.fromRGB(180, 60, 255),
         Red = Color3.fromRGB(255, 50, 50),
@@ -1205,264 +1193,31 @@ function StartObsidianBlack()
         Blue = Color3.fromRGB(50, 150, 255),
         White = Color3.fromRGB(255, 255, 255),
     }
-
-    -- Создаём ScreenGui для ESP визуальных элементов (трассеры, боксы)
-    local function ensureEspGui()
-        if espGui and espGui.Parent then return espGui end
-        espGui = Instance.new("ScreenGui")
-        espGui.Parent = lp:FindFirstChild("PlayerGui") or game:GetService("CoreGui")
-        espGui.Name = "ObsidianESPVisuals"
-        espGui.ResetOnSpawn = false
-        espGui.IgnoreGuiInset = true
-        return espGui
-    end
-
+    
     local function clearESP()
         for _, obj in pairs(espObjects) do
-            if type(obj) == "table" then
-                for _, sub in pairs(obj) do
-                    if sub and sub.Parent then sub:Destroy() end
-                end
-            elseif obj and obj.Parent then
-                obj:Destroy()
-            end
+            if obj and obj.Parent then obj:Destroy() end
         end
         espObjects = {}
-
-        for _, obj in pairs(espDrawings) do
-            if type(obj) == "table" then
-                for _, sub in pairs(obj) do
-                    if sub and sub.Parent then sub:Destroy() end
-                end
-            elseif obj and obj.Parent then
-                obj:Destroy()
-            end
-        end
-        espDrawings = {}
     end
-
+    
     local function updateESP()
         clearESP()
         if not settings.espOn then return end
-        ensureEspGui()
-        local espColor = colorMap[settings.espColor] or colorMap.Violet
-
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= lp and p.Character then
                 local hum = p.Character:FindFirstChildOfClass("Humanoid")
                 local root = p.Character:FindFirstChild("HumanoidRootPart")
-                local head = p.Character:FindFirstChild("Head")
                 if hum and root and hum.Health > 0 then
-                    local bag = {}
-                    espObjects[p] = bag
-
-                    -- Highlight (базовый ESP) — всегда если включён ESP
-                    local hl = Instance.new("Highlight")
-                    hl.Parent = espFolder
-                    hl.Adornee = p.Character
-                    hl.FillColor = espColor
-                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                    hl.FillTransparency = settings.glowOn and 0.2 or 0.5
-                    hl.OutlineTransparency = 0
-                    bag.highlight = hl
-
-                    -- Glow — усилить заливку Highlight
-                    if settings.glowOn then
-                        hl.FillTransparency = 0.15
+                    if settings.espType == "Highlight" then
+                        local hl = Instance.new("Highlight")
+                        hl.Parent = espFolder
+                        hl.Adornee = p.Character
+                        hl.FillColor = colorMap[settings.espColor] or colorMap.Violet
+                        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                        hl.FillTransparency = 0.5
                         hl.OutlineTransparency = 0
-                    end
-
-                    -- BillboardGui с текстом (Health / Name / Distance)
-                    if settings.showHealth or settings.showName or settings.showDistance then
-                        local bb = Instance.new("BillboardGui")
-                        bb.Parent = espFolder
-                        bb.Adornee = head or root
-                        bb.Size = UDim2.new(0, 200, 0, 60)
-                        bb.StudsOffset = Vector3.new(0, 2.5, 0)
-                        bb.AlwaysOnTop = true
-                        bb.MaxDistance = 300
-                        bag.billboard = bb
-
-                        local lbl = Instance.new("TextLabel")
-                        lbl.Size = UDim2.new(1, 0, 1, 0)
-                        lbl.BackgroundTransparency = 1
-                        lbl.TextColor3 = espColor
-                        lbl.Font = Enum.Font.GothamBold
-                        lbl.TextScaled = true
-                        lbl.Parent = bb
-
-                        local parts = {}
-                        if settings.showName then
-                            table.insert(parts, p.DisplayName or p.Name)
-                        end
-                        if settings.showHealth then
-                            table.insert(parts, "HP: " .. math.floor(hum.Health) .. "/" .. math.floor(hum.MaxHealth))
-                        end
-                        if settings.showDistance then
-                            local lpRoot = getRoot()
-                            local dist = lpRoot and math.floor((root.Position - lpRoot.Position).Magnitude) or 0
-                            table.insert(parts, dist .. "m")
-                        end
-                        lbl.Text = table.concat(parts, "\n")
-                    end
-
-                    -- Skeleton ESP — рисуем линии между суставами
-                    if settings.skeleton then
-                        local rigParts = {
-                            "Head", "UpperTorso", "LowerTorso", "HumanoidRootPart",
-                            "LeftUpperArm", "LeftLowerArm", "LeftHand",
-                            "RightUpperArm", "RightLowerArm", "RightHand",
-                            "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
-                            "RightUpperLeg", "RightLowerLeg", "RightFoot",
-                        }
-                        local bagSkeleton = {}
-                        -- Поддержка R6 и R15: пробуем соединения
-                        local connections = {
-                            {"Head", "UpperTorso"}, {"UpperTorso", "LowerTorso"},
-                            {"UpperTorso", "LeftUpperArm"}, {"LeftUpperArm", "LeftLowerArm"}, {"LeftLowerArm", "LeftHand"},
-                            {"UpperTorso", "RightUpperArm"}, {"RightUpperArm", "RightLowerArm"}, {"RightLowerArm", "RightHand"},
-                            {"LowerTorso", "LeftUpperLeg"}, {"LeftUpperLeg", "LeftLowerLeg"}, {"LeftLowerLeg", "LeftFoot"},
-                            {"LowerTorso", "RightUpperLeg"}, {"RightUpperLeg", "RightLowerLeg"}, {"RightLowerLeg", "RightFoot"},
-                        }
-                        -- R6 fallback: Torso, Head, LeftArm/RightArm/LeftLeg/RightLeg
-                        local r6Connections = {
-                            {"Head", "Torso"},
-                            {"Torso", "Left Arm"}, {"Torso", "Right Arm"},
-                            {"Torso", "Left Leg"}, {"Torso", "Right Leg"},
-                        }
-                        local char = p.Character
-                        local isR6 = not char:FindFirstChild("UpperTorso")
-                        local usedConnections = isR6 and r6Connections or connections
-
-                        for _, pair in ipairs(usedConnections) do
-                            local a = char:FindFirstChild(pair[1])
-                            local b = char:FindFirstChild(pair[2])
-                            if a and b then
-                                local beam = Instance.new("Beam")
-                                beam.Parent = espFolder
-                                local a0 = Instance.new("Attachment", a)
-                                local a1 = Instance.new("Attachment", b)
-                                beam.Attachment0 = a0
-                                beam.Attachment1 = a1
-                                beam.Width0 = 0.1
-                                beam.Width1 = 0.1
-                                beam.Color = ColorSequence.new(espColor)
-                                beam.Transparency = NumberSequence.new(0)
-                                bagSkeleton[#bagSkeleton + 1] = beam
-                                bagSkeleton[#bagSkeleton + 1] = a0
-                                bagSkeleton[#bagSkeleton + 1] = a1
-                            end
-                        end
-                        bag.skeleton = bagSkeleton
-                    end
-                end
-            end
-        end
-    end
-
-    -- Обновление визуальных элементов ESP (tracers, box) — каждый кадр
-    local function updateESPVisuals()
-        if not settings.espOn or (not settings.tracer and not settings.boxFilled) then
-            -- очищаем динамические объекты если функции выключены
-            for _, obj in pairs(espDrawings) do
-                if type(obj) == "table" then
-                    for _, sub in pairs(obj) do
-                        if sub and sub.Parent then sub:Destroy() end
-                    end
-                elseif obj and obj.Parent then
-                    obj:Destroy()
-                end
-            end
-            espDrawings = {}
-            return
-        end
-        ensureEspGui()
-        local espColor = colorMap[settings.espColor] or colorMap.Violet
-
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= lp and p.Character then
-                local hum = p.Character:FindFirstChildOfClass("Humanoid")
-                local root = p.Character:FindFirstChild("HumanoidRootPart")
-                local head = p.Character:FindFirstChild("Head")
-                if hum and root and hum.Health > 0 then
-                    local topPart = head or root
-                    local pos, onScreen = Camera:WorldToViewportPoint(topPart.Position + Vector3.new(0, 1, 0))
-                    local bottomPos, _ = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3, 0))
-
-                    if onScreen then
-                        local bag = espDrawings[p] or {}
-
-                        -- TRACER — линия от нижнего края экрана до цели
-                        if settings.tracer then
-                            if not bag.tracer or not bag.tracer.Parent then
-                                local line = Instance.new("Frame")
-                                line.Parent = espGui
-                                line.BackgroundColor3 = espColor
-                                line.BorderSizePixel = 0
-                                line.AnchorPoint = Vector2.new(0, 0.5)
-                                bag.tracer = line
-                            end
-                            local screenH = Camera.ViewportSize.Y
-                            local start = Vector2.new(Camera.ViewportSize.X / 2, screenH)
-                            local finish = Vector2.new(pos.X, pos.Y)
-                            local delta = finish - start
-                            local length = delta.Magnitude
-                            local angle = math.deg(math.atan2(delta.Y, delta.X))
-                            bag.tracer.Size = UDim2.new(0, length, 0, 1)
-                            bag.tracer.Position = UDim2.new(0, start.X, 0, start.Y)
-                            bag.tracer.Rotation = angle
-                            bag.tracer.Visible = true
-                        elseif bag.tracer then
-                            bag.tracer.Visible = false
-                        end
-
-                        -- BOX ESP — рамка вокруг игрока
-                        if settings.boxFilled then
-                            if not bag.box or not bag.box.Parent then
-                                local box = Instance.new("Frame")
-                                box.Parent = espGui
-                                box.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-                                box.BackgroundTransparency = 1
-                                box.BorderSizePixel = 0
-                                -- 4 стороны рамки
-                                for _, side in ipairs({"top", "bottom", "left", "right"}) do
-                                    local s = Instance.new("Frame")
-                                    s.Name = side
-                                    s.Parent = box
-                                    s.BackgroundColor3 = espColor
-                                    s.BorderSizePixel = 0
-                                end
-                                bag.box = box
-                            end
-                            local minX = math.min(pos.X, bottomPos.X)
-                            local maxX = math.max(pos.X, bottomPos.X)
-                            local minY = math.min(pos.Y, bottomPos.Y)
-                            local maxY = math.max(pos.Y, bottomPos.Y)
-                            local width = maxX - minX
-                            local height = maxY - minY
-                            local thickness = 1
-                            bag.box.Position = UDim2.new(0, minX - thickness, 0, minY - thickness)
-                            bag.box.Size = UDim2.new(0, width + thickness * 2, 0, height + thickness * 2)
-                            bag.box.Visible = true
-                            bag.box.top.Size = UDim2.new(1, 0, 0, thickness)
-                            bag.box.top.Position = UDim2.new(0, 0, 0, 0)
-                            bag.box.bottom.Size = UDim2.new(1, 0, 0, thickness)
-                            bag.box.bottom.Position = UDim2.new(0, 0, 1, -thickness)
-                            bag.box.left.Size = UDim2.new(0, thickness, 1, 0)
-                            bag.box.left.Position = UDim2.new(0, 0, 0, 0)
-                            bag.box.right.Size = UDim2.new(0, thickness, 1, 0)
-                            bag.box.right.Position = UDim2.new(1, -thickness, 0, 0)
-                        elseif bag.box then
-                            bag.box.Visible = false
-                        end
-
-                        espDrawings[p] = bag
-                    else
-                        -- вне экрана — скрываем
-                        if espDrawings[p] then
-                            if espDrawings[p].tracer then espDrawings[p].tracer.Visible = false end
-                            if espDrawings[p].box then espDrawings[p].box.Visible = false end
-                        end
+                        espObjects[p] = hl
                     end
                 end
             end
@@ -1495,29 +1250,6 @@ function StartObsidianBlack()
         dc.Parent = dot
     end
     createCrosshair()
-
-    -- ============================================
-    -- ОБРАБОТКА РЕСПАВНА ПЕРСОНАЖА (ИСПРАВЛЕНО)
-    -- При смерти/возрождении сбрасываем flyBody и пр., чтобы не было багов
-    -- ============================================
-    local function onCharacterAdded(char)
-        -- Сбрасываем BodyVelocity от FLY — старый root уничтожен
-        flyBody = nil
-        aimLockTarget = nil
-        jumpCount = 0
-        -- Ждём, пока Humanoid и RootPart появятся
-        task.spawn(function()
-            local hum = char:WaitForChild("Humanoid", 5)
-            local root = char:WaitForChild("HumanoidRootPart", 5)
-            if hum then
-                -- Восстанавливаем скорость/прыжок из настроек
-                hum.WalkSpeed = settings.speed or 16
-                hum.JumpPower = settings.jump or 50
-            end
-        end)
-    end
-    if lp.Character then onCharacterAdded(lp.Character) end
-    lp.CharacterAdded:Connect(onCharacterAdded)
     
     -- ============================================
     -- ГЛАВНЫЙ ЦИКЛ
@@ -1650,7 +1382,7 @@ function StartObsidianBlack()
                 hum.JumpPower = baseJump
             end
             
-            -- NOCLIP (ИСПРАВЛЕНО: при восстановлении CanCollide не трогаем аксессуары и HumanoidRootPart)
+            -- NOCLIP
             if settings.noclipOn or settings.noClipFlyOn then
                 local char = lp.Character
                 if char then
@@ -1665,42 +1397,27 @@ function StartObsidianBlack()
                 local char = lp.Character
                 if char then
                     for _, p in ipairs(char:GetDescendants()) do
-                        -- ИСПРАВЛЕНО: не трогать аксессуары (Accessories), HumanoidRootPart
-                        -- и части, которые обычно не имеют CanCollide
-                        if p:IsA("BasePart")
-                        and p.Name ~= "HumanoidRootPart"
-                        and not p.Parent:IsA("Accessory")
-                        and not p.Parent:IsA("Tool") then
-                            -- Только ставим CanCollide=true для основных частей тела (Head, Torso, Limbs)
-                            local parent = p.Parent
-                            if parent == char or parent:IsA("BodyPart") or parent:IsA("CharacterMesh") then
-                                p.CanCollide = true
-                            end
+                        if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
+                            -- HumanoidRootPart обычно CanCollide=false
+                            p.CanCollide = true
                         end
                     end
                 end
             end
             
-            -- FLY (ИСПРАВЛЕНО: добавлен MaxForce, без него BodyVelocity не работает!)
+            -- FLY
             if settings.flyOn then
                 local root = getRoot()
-                local hum = getHumanoid()
                 if root then
-                    if not flyBody or not flyBody.Parent then
+                    if not flyBody then
                         flyBody = Instance.new("BodyVelocity")
-                        flyBody.MaxForce = Vector3.new(1e9, 1e9, 1e9)  -- КРИТИЧНО! без этого Fly не работает
-                        flyBody.P = 1e5
                         flyBody.Parent = root
                     end
-                    -- Отключаем гравитацию Humanoid во время полёта
-                    if hum then hum:ChangeState(Enum.HumanoidStateType.Physics) end
                     local dir = Vector3.zero
                     if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir = dir + Camera.CFrame.LookVector end
                     if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir = dir - Camera.CFrame.LookVector end
                     if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir = dir - Camera.CFrame.RightVector end
                     if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir = dir + Camera.CFrame.RightVector end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0) end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir = dir - Vector3.new(0, 1, 0) end
                     flyBody.Velocity = dir * settings.flySpeed * 50
                 end
             else
@@ -1944,9 +1661,6 @@ function StartObsidianBlack()
             if crosshair then
                 crosshair.Enabled = settings.crosshairOn
             end
-
-            -- ESP VISUALS (tracer/box) — каждый кадр, т.к. зависят от позиции камеры
-            pcall(updateESPVisuals)
         end)
         
         -- ESP LOOP (медленнее)
@@ -1997,54 +1711,13 @@ function StartObsidianBlack()
         end)
 
         -- ============================================
-        -- AUTO CLICK LOOP — клики с autoClickDelay (ИСПРАВЛЕНО: учитывает autoClickRange)
+        -- AUTO CLICK LOOP — клики с autoClickDelay
         -- ============================================
         task.spawn(function()
             while task.wait(settings.autoClickDelay) do
                 if settings.autoClickOn then
                     pcall(function()
-                        -- Если задан диапазон — кликаем только если в нём есть цель
-                        local canClick = true
-                        if settings.autoClickRange and settings.autoClickRange > 0 then
-                            local root = getRoot()
-                            canClick = false
-                            if root then
-                                -- Проверяем игроков
-                                for _, p in ipairs(Players:GetPlayers()) do
-                                    if p ~= lp and p.Character then
-                                        local tRoot = p.Character:FindFirstChild("HumanoidRootPart")
-                                        local tHum = p.Character:FindFirstChildOfClass("Humanoid")
-                                        if tRoot and tHum and tHum.Health > 0 then
-                                            if (tRoot.Position - root.Position).Magnitude <= settings.autoClickRange then
-                                                canClick = true
-                                                break
-                                            end
-                                        end
-                                    end
-                                end
-                                -- Если рядом нет игроков — проверяем NPC
-                                if not canClick then
-                                    for _, obj in ipairs(workspace:GetDescendants()) do
-                                        if obj:IsA("Model") then
-                                            local tHum = obj:FindFirstChildOfClass("Humanoid")
-                                            local tRoot = obj:FindFirstChild("HumanoidRootPart")
-                                            if tHum and tRoot and tHum.Health > 0 then
-                                                -- не игрок
-                                                local isPlayer = false
-                                                for _, p in ipairs(Players:GetPlayers()) do
-                                                    if p.Character == obj then isPlayer = true break end
-                                                end
-                                                if not isPlayer and (tRoot.Position - root.Position).Magnitude <= settings.autoClickRange then
-                                                    canClick = true
-                                                    break
-                                                end
-                                            end
-                                        end
-                                    end
-                                end
-                            end
-                        end
-                        if canClick and mouse1press then
+                        if mouse1press then
                             mouse1press()
                             task.wait(0.02)
                             mouse1release()
@@ -2150,10 +1823,14 @@ function StartObsidianBlack()
     -- ВВОД
     -- ============================================
     UserInputService.InputBegan:Connect(function(input, gpe)
-        -- ИСПРАВЛЕНО: Space обрабатываем ДО проверки gpe, т.к. Roblox
-        -- обрабатывает Space как прыжок и ставит gpe=true — из-за этого
-        -- Infinite Jump и Air Jump никогда не срабатывали!
-        if input.KeyCode == Enum.KeyCode.Space then
+        if gpe then return end
+        if input.KeyCode == Enum.KeyCode.RightShift then
+            local gui = lp:FindFirstChild("PlayerGui") and lp.PlayerGui:FindFirstChild("ObsidianBlack")
+            if gui then gui.Enabled = not gui.Enabled end
+        elseif input.KeyCode == Enum.KeyCode.R then
+            local gui = lp:FindFirstChild("PlayerGui") and lp.PlayerGui:FindFirstChild("ObsidianBlack")
+            if gui then gui:Destroy() end
+        elseif input.KeyCode == Enum.KeyCode.Space then
             local hum = getHumanoid()
             if hum then
                 -- Infinite Jump: прыжок каждый раз при нажатии Space (даже в воздухе)
@@ -2167,16 +1844,6 @@ function StartObsidianBlack()
                     end
                 end
             end
-            return
-        end
-        -- Остальные клавиши — только если ввод не обработан UI (например, не в чате)
-        if gpe then return end
-        if input.KeyCode == Enum.KeyCode.RightShift then
-            local gui = lp:FindFirstChild("PlayerGui") and lp.PlayerGui:FindFirstChild("ObsidianBlack")
-            if gui then gui.Enabled = not gui.Enabled end
-        elseif input.KeyCode == Enum.KeyCode.R then
-            local gui = lp:FindFirstChild("PlayerGui") and lp.PlayerGui:FindFirstChild("ObsidianBlack")
-            if gui then gui:Destroy() end
         end
     end)
     
